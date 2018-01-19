@@ -354,16 +354,19 @@ class Pogom(Flask):
                 not args.no_pokestops):
             if lastpokestops != 'true':
                 d['pokestops'] = Pokestop.get_stops(swLat, swLng, neLat, neLng,
-                                                    lured=luredonly)
+                                                    lured=luredonly,
+                                                    pokestop_names=args.pokestop_names)
             else:
                 d['pokestops'] = Pokestop.get_stops(swLat, swLng, neLat, neLng,
-                                                    timestamp=timestamp)
+                                                    timestamp=timestamp,
+                                                    pokestop_names=args.pokestop_names)
                 if newArea:
                     d['pokestops'] = d['pokestops'] + (
                         Pokestop.get_stops(swLat, swLng, neLat, neLng,
                                            oSwLat=oSwLat, oSwLng=oSwLng,
                                            oNeLat=oNeLat, oNeLng=oNeLng,
-                                           lured=luredonly))
+                                           lured=luredonly,
+                                           pokestop_names=args.pokestop_names))
 
         if request.args.get('gyms', 'true') == 'true' and not args.no_gyms:
             if lastgyms != 'true':

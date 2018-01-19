@@ -20,7 +20,7 @@
                     [-msl MIN_SECONDS_LEFT] [-dc] [-H HOST] [-P PORT]
                     [-L LOCALE] [-c] [-m MOCK] [-ns] [-os] [-sc] [-nfl] -k
                     GMAPS_KEY [--skip-empty] [-C] [-cd] [-np] [-ng] [-nr]
-                    [-nk] [-ss] [-ssct SS_CLUSTER_TIME] [-speed] [-spin]
+                    [-nk] [-kn] [-ss] [-ssct SS_CLUSTER_TIME] [-speed] [-spin]
                     [-ams ACCOUNT_MAX_SPINS] [-kph KPH] [-hkph HLVL_KPH]
                     [-ldur LURE_DURATION] [-pd PURGE_DATA] [-px PROXY] [-pxsc]
                     [-pxt PROXY_TEST_TIMEOUT] [-pxre PROXY_TEST_RETRIES]
@@ -246,6 +246,9 @@ which override config file values which override defaults.
                             into local db). [env var: POGOMAP_NO_RAIDS]
       -nk, --no-pokestops   Disables PokeStops from the map (including parsing
                             them into local db). [env var: POGOMAP_NO_POKESTOPS]
+      -kn, --pokestop-names
+                            Enables PokeStop names on the map (including parsing
+                            them into local db). [env var: POGOMAP_POKESTOP_NAMES]
       -ss, --spawnpoint-scanning
                             Use spawnpoint scanning (instead of hex grid). Scans
                             in a circle based on step_limit when on DB. [env var:

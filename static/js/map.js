@@ -833,13 +833,26 @@ function gymLabel(gym, includeMembers = true) {
         </div>`
 }
 
-function pokestopLabel(expireTime, latitude, longitude) {
+function pokestopLabel(item) {
     var str
+    var expireTime = item['lure_expiration']
+    var latitude = item['latitude']
+    var longitude = item['longitude']
+    var name
+
+    if (item['name']) {
+        name = item['name']
+        if (expireTime) name += ' (Lured)'
+    } else if (expireTime) {
+        name = 'Lured Pokéstop'
+    } else {
+        name = 'Pokéstop'
+    }
     if (expireTime) {
         str = `
             <div>
               <div class='pokestop lure'>
-                Lured Pokéstop
+                ${name}
               </div>
               <div class='pokestop-expire'>
                   <span class='label-countdown' disappears-at='${expireTime}'>00m00s</span> left (${moment(expireTime).format('HH:mm')})
@@ -856,7 +869,7 @@ function pokestopLabel(expireTime, latitude, longitude) {
         str = `
             <div>
               <div class='pokestop nolure'>
-                Pokéstop
+                ${name}
               </div>
               <div>
                 <img class='pokestop sprite' src='static/images/pokestop//Pokestop.png'>
@@ -1220,7 +1233,7 @@ function setupPokestopMarker(item) {
     }
 
     marker.infoWindow = new google.maps.InfoWindow({
-        content: pokestopLabel(item['lure_expiration'], item['latitude'], item['longitude']),
+        content: pokestopLabel(item),
         disableAutoPan: true
     })
 

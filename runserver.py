@@ -311,6 +311,8 @@ def main():
              'disabled' if args.no_pokemon else 'enabled')
     log.info('Parsing of Pokestops %s.',
              'disabled' if args.no_pokestops else 'enabled')
+    log.info('Parsing of Pokestop names %s.',
+             'enabled' if args.pokestop_names else 'disabled')
     log.info('Parsing of Gyms %s.',
              'disabled' if args.no_gyms else 'enabled')
     log.info('Pokemon encounters %s.',

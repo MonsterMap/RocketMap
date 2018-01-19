@@ -8,6 +8,7 @@ import sys
 import gc
 import time
 import math
+import random
 
 from peewee import (InsertQuery, Check, CompositeKey, ForeignKeyField,
                     SmallIntegerField, IntegerField, CharField, DoubleField,
@@ -32,7 +33,7 @@ from .customLog import printPokemon
 
 from .account import check_login, setup_api, pokestop_spinnable, spin_pokestop
 from .proxy import get_new_proxy
-from .apiRequests import encounter
+from .apiRequests import encounter, fort_details
 
 log = logging.getLogger(__name__)
 
@@ -40,7 +41,7 @@ args = get_args()
 flaskDb = FlaskDB()
 cache = TTLCache(maxsize=100, ttl=60 * 5)
 
-db_schema_version = 22
+db_schema_version = 23
 
 
 class MyRetryDB(RetryOperationalError, PooledMySQLDatabase):
@@ -315,12 +316,25 @@ class Pokestop(LatLongModel):
 
     @staticmethod
     def get_stops(swLat, swLng, neLat, neLng, timestamp=0, oSwLat=None,
-                  oSwLng=None, oNeLat=None, oNeLng=None, lured=False):
+                  oSwLng=None, oNeLat=None, oNeLng=None, lured=False,
+                  pokestop_names=False):
 
-        query = Pokestop.select(Pokestop.active_fort_modifier,
-                                Pokestop.enabled, Pokestop.latitude,
-                                Pokestop.longitude, Pokestop.last_modified,
-                                Pokestop.lure_expiration, Pokestop.pokestop_id)
+        select_fields = [Pokestop.active_fort_modifier,
+                         Pokestop.enabled, Pokestop.latitude,
+                         Pokestop.longitude, Pokestop.last_modified,
+                         Pokestop.lure_expiration, Pokestop.pokestop_id]
+
+        if pokestop_names:
+            select_fields += [PokestopDetails.name,
+                              PokestopDetails.description,
+                              PokestopDetails.url]
+
+        query = Pokestop.select(*select_fields)
+
+        if pokestop_names:
+            query = query.join(PokestopDetails, JOIN.LEFT_OUTER,
+                               on=(Pokestop.pokestop_id ==
+                                   PokestopDetails.pokestop_id))
 
         if not (swLat and swLng and neLat and neLng):
             query = (query
@@ -394,6 +408,13 @@ class Pokestop(LatLongModel):
         gc.enable()
 
         return pokestops
+
+
+class PokestopDetails(BaseModel):
+    pokestop_id = Utf8mb4CharField(primary_key=True, max_length=50)
+    name = Utf8mb4CharField()
+    description = TextField(null=True, default="")
+    url = Utf8mb4CharField()
 
 
 class Gym(LatLongModel):
@@ -1772,6 +1793,7 @@ def parse_map(args, map_dict, scan_coords, scan_location, db_update_queue,
               account_sets):
     pokemon = {}
     pokestops = {}
+    pokestop_details = {}
     gyms = {}
     raids = {}
     skipped = 0
@@ -2056,6 +2078,20 @@ def parse_map(args, map_dict, scan_coords, scan_location, db_update_queue,
                     'active_fort_modifier': active_fort_modifier
                 }
 
+                if args.pokestop_names:
+                    time.sleep(random.uniform(2, 4))
+                    details_result = fort_details(api, account, f)
+                    if details_result:
+                        details_responses = details_result['responses']
+                        if 'FORT_DETAILS' in details_responses:
+                            details = details_responses['FORT_DETAILS']
+                            pokestop_details[f.id] = {
+                                'pokestop_id': f.id,
+                                'name': details.name,
+                                'description': details.description,
+                                'url': details.image_urls[0]
+                            }
+
                 # Send all pokestops to webhooks.
                 if 'pokestop' in args.wh_types or (
                         'lure' in args.wh_types and
@@ -2068,6 +2104,7 @@ def parse_map(args, map_dict, scan_coords, scan_location, db_update_queue,
                         'pokestop_id': f.id,
                         'last_modified': f.last_modified_timestamp_ms,
                         'lure_expiration': l_e,
+                        'details': pokestop_details.get(f.id)
                     })
                     wh_update_queue.put(('pokestop', wh_pokestop))
 
@@ -2255,6 +2292,8 @@ def parse_map(args, map_dict, scan_coords, scan_location, db_update_queue,
         db_update_queue.put((Pokemon, pokemon))
     if pokestops:
         db_update_queue.put((Pokestop, pokestops))
+    if pokestop_details:
+        db_update_queue.put((PokestopDetails, pokestop_details))
     if gyms:
         db_update_queue.put((Gym, gyms))
     if raids:
@@ -2675,7 +2714,7 @@ def create_tables(db):
     tables = [Pokemon, Pokestop, Gym, Raid, ScannedLocation, GymDetails,
               GymMember, GymPokemon, Trainer, MainWorker, WorkerStatus,
               SpawnPoint, ScanSpawnPoint, SpawnpointDetectionData,
-              Token, LocationAltitude, PlayerLocale, HashKeys]
+              Token, LocationAltitude, PlayerLocale, HashKeys, PokestopDetails]
     with db.execution_context():
         for table in tables:
             if not table.table_exists():
@@ -2691,7 +2730,7 @@ def drop_tables(db):
               GymDetails, GymMember, GymPokemon, Trainer, MainWorker,
               WorkerStatus, SpawnPoint, ScanSpawnPoint,
               SpawnpointDetectionData, LocationAltitude, PlayerLocale,
-              Token, HashKeys]
+              Token, HashKeys, PokestopDetails]
     with db.execution_context():
         db.execute_sql('SET FOREIGN_KEY_CHECKS=0;')
         for table in tables:
@@ -3074,6 +3113,10 @@ def database_migrate(db, old_ver):
         db.execute_sql('ALTER TABLE `spawnpoint` '
                        'ADD CONSTRAINT CONSTRAINT_4 CHECK ' +
                        '(`latest_seen` <= 3600);')
+
+    # Create missing tables
+    if old_ver < 23:
+        create_tables(db)
 
     # Always log that we're done.
     log.info('Schema upgrade complete.')
